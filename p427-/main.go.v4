@@ -1,0 +1,283 @@
+// v4
+package main
+
+import (
+	"bufio"
+	"io"
+	"log"
+	"os"
+	"strconv"
+	"unsafe"
+)
+
+type item struct {
+	val   int
+	count int
+	used  int
+}
+
+type queue struct {
+	first int
+	last  int
+	// size  int
+	items []item
+}
+
+const max_used = 3
+
+func newQueue(n int) *queue {
+	items := make([]item, n+1)
+	items[0] = item{val: 0, count: 1, used: max_used}
+	return &queue{
+		// size:  1,
+		items: items,
+	}
+}
+
+func (q *queue) push(val int) (int, int) {
+	// if q.size == len(q.items) {
+	// 	panic("queue full")
+	// }
+
+	count := 1
+	if q.items[q.last].val == val-1 {
+		count = int(q.items[q.last].count + 1)
+	}
+
+	q.last = q.nextIdx(q.last)
+	q.items[q.last] = item{val, count, max_used}
+	// q.size++
+
+	return q.last, count
+}
+
+func (q *queue) nextIdx(idx int) int {
+	idx++
+	if idx == len(q.items) {
+		idx = 0
+	}
+	return idx
+}
+
+func (q *queue) pop() {
+	// if q.size == 0 {
+	// 	panic("queue empty")
+	// }
+
+	q.first = q.nextIdx(q.first)
+	// q.size--
+}
+
+func (q *queue) front() item {
+	// if q.size == 0 {
+	// 	panic("queue empty")
+	// }
+
+	return q.items[q.first]
+}
+
+func (q *queue) back() item {
+	// if q.size == 0 {
+	// 	panic("queue empty")
+	// }
+
+	return q.items[q.last]
+}
+
+func solve(n int, a, b, c int) int {
+	// prepare
+	d := gcd(a, gcd(b, c))
+	a /= d
+	b /= d
+	c /= d
+	n = (n + d - 1) / d
+
+	q := newQueue(max(a, b, c))
+	// if debugEnable {
+	// 	log.Println(n, a, b, c)
+	// 	log.Println(*q)
+	// }
+
+	count := 1
+
+	i, j, k := 0, 0, 0
+	a_next, b_next, c_next := a, b, c
+
+	end := min(a, b, c)
+	for a_next < n || b_next < n || c_next < n {
+		if q.back().count == end {
+			count += n - (q.back().val + 1)
+			break
+		}
+
+		min_next := min(a_next, b_next, c_next)
+		// if debugEnable {
+		// 	log.Println(">:", []int{i, j, k}, []int{a_next, b_next, c_next}, min_next)
+		// }
+		q.push(min_next)
+		count++
+
+		if a_next == min_next {
+			q.items[i].used--
+			i = q.nextIdx(i)
+			a_next = q.items[i].val + a
+		}
+		if b_next == min_next {
+			q.items[j].used--
+			j = q.nextIdx(j)
+			b_next = q.items[j].val + b
+		}
+		if c_next == min_next {
+			q.items[k].used--
+			k = q.nextIdx(k)
+			c_next = q.items[k].val + c
+		}
+
+		for q.front().used == 0 {
+			q.pop()
+		}
+
+		// if debugEnable {
+		// 	log.Println("=:", *q, count)
+		// }
+	}
+
+	return count
+}
+
+func gcd(a, b int) int {
+	for a > 0 {
+		a, b = b%a, a
+	}
+	return b
+}
+
+func run(in io.Reader, out io.Writer) error {
+	sc := bufio.NewScanner(in)
+	sc.Split(bufio.ScanWords)
+	bw := bufio.NewWriter(out)
+	defer bw.Flush()
+
+	n, a, b, c, err := scanFourInt(sc)
+	if err != nil {
+		return err
+	}
+
+	count := solve(n, a, b, c)
+	writeInt(bw, count, writeOpts{end: '\n'})
+
+	return nil
+}
+
+// ----------------------------------------------------------------------------
+
+func unsafeString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func scanInt(sc *bufio.Scanner) (int, error) {
+	sc.Scan()
+	return strconv.Atoi(unsafeString(sc.Bytes()))
+}
+
+func scanTwoInt(sc *bufio.Scanner) (v1, v2 int, err error) {
+	v1, err = scanInt(sc)
+	if err == nil {
+		v2, err = scanInt(sc)
+	}
+	return v1, v2, err
+}
+
+func scanThreeInt(sc *bufio.Scanner) (v1, v2, v3 int, err error) {
+	v1, err = scanInt(sc)
+	if err == nil {
+		v2, err = scanInt(sc)
+	}
+	if err == nil {
+		v3, err = scanInt(sc)
+	}
+	return v1, v2, v3, err
+}
+
+func scanFourInt(sc *bufio.Scanner) (v1, v2, v3, v4 int, err error) {
+	v1, err = scanInt(sc)
+	if err == nil {
+		v2, err = scanInt(sc)
+	}
+	if err == nil {
+		v3, err = scanInt(sc)
+	}
+	if err == nil {
+		v4, err = scanInt(sc)
+	}
+	return v1, v2, v3, v4, err
+}
+
+func scanInts(sc *bufio.Scanner, a []int) error {
+	for i := range a {
+		v, err := scanInt(sc)
+		if err != nil {
+			return err
+		}
+		a[i] = v
+	}
+	return nil
+}
+
+type Int interface {
+	~int | ~int64 | ~int32 | ~int16 | ~int8
+}
+
+type writeOpts struct {
+	sep byte
+	end byte
+}
+
+func writeInt[I Int](bw *bufio.Writer, v I, opts writeOpts) error {
+	var buf [32]byte
+
+	_, err := bw.Write(strconv.AppendInt(buf[:0], int64(v), 10))
+
+	if err == nil && opts.end != 0 {
+		bw.WriteByte(opts.end)
+	}
+
+	return err
+}
+
+func writeInts[I Int](bw *bufio.Writer, a []I, opts writeOpts) error {
+	var err error
+
+	if len(a) != 0 {
+		var buf [32]byte
+
+		if opts.sep == 0 {
+			opts.sep = ' '
+		}
+
+		_, err = bw.Write(strconv.AppendInt(buf[:0], int64(a[0]), 10))
+
+		for i := 1; err == nil && i < len(a); i++ {
+			err = bw.WriteByte(opts.sep)
+			if err == nil {
+				_, err = bw.Write(strconv.AppendInt(buf[:0], int64(a[i]), 10))
+			}
+		}
+	}
+
+	if err == nil && opts.end != 0 {
+		err = bw.WriteByte(opts.end)
+	}
+
+	return err
+}
+
+var _, debugEnable = os.LookupEnv("DEBUG")
+
+func main() {
+	_ = debugEnable
+	err := run(os.Stdin, os.Stdout)
+	if err != nil {
+		log.Fatal(err)
+	}
+}

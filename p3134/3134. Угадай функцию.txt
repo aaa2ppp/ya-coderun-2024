@@ -1,0 +1,3 @@
+https://coderun.yandex.ru/seasons/2024-summer/tracks/backend/problem/phi-backend
+https://ru.wikipedia.org/wiki/Функция_Эйлера
+http://e-maxx.ru/algo/euler_function
