@@ -114,6 +114,31 @@ func Test_run(t *testing.T) {
 			false,
 			true,
 		},
+		{
+			"1.5",
+			args{strings.NewReader(`3
+			1 10
+			a 12
+			5 a
+			b 7`)},
+			strconv.Itoa(func() int {
+				var res int
+				for a := 5; a <= 7; a++ {
+					for b := a; b <= 7; b++ {
+						for c := 5; c <= a; c++ {
+							for d := b; d <= 7; d++ {
+								res += 1
+								res %= modulo
+							}
+						}
+					}
+				}
+				return res
+			}()),
+			false,
+			true,
+		},
+
 		// {
 		// 	"2",
 		// 	args{strings.NewReader(``)},
