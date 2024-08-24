@@ -3,13 +3,12 @@ package main
 import (
 	"bufio"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"unsafe"
 )
 
-func run(in io.Reader, out io.Writer) error {
+func run(in io.Reader, out io.Writer) {
 	sc := bufio.NewScanner(in)
 	sc.Split(bufio.ScanWords)
 	bw := bufio.NewWriter(out)
@@ -17,13 +16,19 @@ func run(in io.Reader, out io.Writer) error {
 
 	n, err := scanInt(sc)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	_ = n
 
-	// TDOD
+}
 
-	return nil
+// ----------------------------------------------------------------------------
+
+var _, debugEnable = os.LookupEnv("DEBUG")
+
+func main() {
+	_ = debugEnable
+	run(os.Stdin, os.Stdout)
 }
 
 // ----------------------------------------------------------------------------
@@ -129,12 +134,23 @@ func writeInts[I Int](bw *bufio.Writer, a []I, opts writeOpts) error {
 	return err
 }
 
-var _, debugEnable = os.LookupEnv("DEBUG")
+// ----------------------------------------------------------------------------
 
-func main() {
-	_ = debugEnable
-	err := run(os.Stdin, os.Stdout)
-	if err != nil {
-		log.Fatal(err)
+func gcd(a, b int) int {
+	if a > b {
+		a, b = b, a
 	}
+	for a > 0 {
+		a, b = b%a, a
+	}
+	return b
+}
+
+func makeMatrix[T any](n, m int) [][]T {
+	buf := make([]T, n*m)
+	matrix := make([][]T, n)
+	for i, j := 0, 0; i < n; i, j = i+1, j+m {
+		matrix[i] = buf[j : j+m]
+	}
+	return matrix
 }

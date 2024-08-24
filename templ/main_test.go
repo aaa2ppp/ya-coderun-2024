@@ -15,35 +15,30 @@ func Test_run(t *testing.T) {
 		name    string
 		args    args
 		wantOut string
-		wantErr bool
-		debug bool
+		debug   bool
 	}{
 		// {
 		// 	"1",
 		// 	args{strings.NewReader(``)},
 		// 	``,
-		// 	false,
 		// 	true,
 		// },
 		// {
 		// 	"2",
 		// 	args{strings.NewReader(``)},
 		// 	``,
-		// 	false,
 		// 	true,
 		// },
 		// {
 		// 	"3",
 		// 	args{strings.NewReader(``)},
 		// 	``,
-		// 	false,
 		// 	true,
 		// },
 		// {
 		// 	"4",
 		// 	args{strings.NewReader(``)},
 		// 	``,
-		// 	false,
 		// 	true,
 		// },
 		// TODO: Add test cases.
@@ -52,13 +47,21 @@ func Test_run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			debugEnable = tt.debug
 			out := &bytes.Buffer{}
-			if err := run(tt.args.in, out); (err != nil) != tt.wantErr {
-				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOut := out.String(); strings.TrimRight(gotOut, "\r\n") != strings.TrimRight(tt.wantOut, "\r\n") {
+			run(tt.args.in, out)
+			if gotOut := out.String(); trimLines(gotOut) != trimLines(tt.wantOut) {
 				t.Errorf("run() = %v, want %v", gotOut, tt.wantOut)
 			}
 		})
 	}
+}
+
+func trimLines(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t\r\n")
+	}
+	for n := len(lines); n > 0 && lines[n-1] == ""; n-- {
+		lines = lines[:n-1]
+	}
+	return strings.Join(lines, "\n")
 }

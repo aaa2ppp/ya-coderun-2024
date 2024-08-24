@@ -25,6 +25,9 @@ func solve(a, b []int) (int, bool) {
 				d *= v
 				if d >= 1e9 {
 					d %= 1e9
+					if d == 0 {
+						return 0, true
+					}
 					truncated = true
 				}
 				a[i] /= v
