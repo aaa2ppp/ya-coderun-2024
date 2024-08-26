@@ -51,6 +51,27 @@ func slowSolve(w []warehouse, o []order) []int {
 	return res
 }
 
+type fraction struct {
+	n, m int
+}
+
+func (f fraction) normalise() fraction {
+	d := gcd(f.n, f.m)
+	return fraction{f.n / d, f.m / d}
+}
+
+func (f fraction) less(other fraction) bool {
+	return f.n*other.m < other.n*f.m
+}
+
+func (f fraction) asFloat() float64 {
+	return float64(f.n) / float64(f.m)
+}
+
+func (f fraction) String() string {
+	return strconv.FormatFloat(f.asFloat(), 'f', 6, 64)
+}
+
 func reverse[T any](aa []T) {
 	for i, j := 0, len(aa)-1; i < j; i, j = i+1, j-1 {
 		aa[i], aa[j] = aa[j], aa[i]
@@ -58,6 +79,8 @@ func reverse[T any](aa []T) {
 }
 
 func solve(w []warehouse, o []order) []int {
+	iterate := iterate2
+
 	res := make([]int, len(o))
 	for i := range res {
 		res[i] = math.MaxInt
@@ -66,11 +89,13 @@ func solve(w []warehouse, o []order) []int {
 	// left -> right
 	iterate(w, o, res)
 
-	for i := range w { // XXX TODO
+	// reverse(w)
+	for i := range w {
 		w[i].x *= -1
 	}
 
-	for i := range o { // XXX TODO
+	// reverse(o)
+	for i := range o {
 		o[i].x *= -1
 	}
 
@@ -80,7 +105,115 @@ func solve(w []warehouse, o []order) []int {
 	return res
 }
 
-func iterate(w []warehouse, o []order, res []int) {
+func intersect(w1, w2 warehouse, x int) fraction {
+	return fraction{
+		n: (w1.price + w1.x*w1.x) - (w2.price + w2.x*w2.x),
+		m: 2 * (w1.x - w2.x),
+	}
+}
+
+func cost(w warehouse, x int) int {
+	dist := x - w.x
+	return w.price + dist*dist
+}
+
+func iterate2(w []warehouse, o []order, res []int) {
+	wx := make([]int, len(w))
+	for i := range wx {
+		wx[i] = i
+	}
+	sort.Slice(wx, func(i, j int) bool {
+		i = wx[i]
+		j = wx[j]
+		return w[i].x < w[j].x
+	})
+
+	ox := make([]int, len(o))
+	for i := range ox {
+		ox[i] = i
+	}
+	sort.Slice(ox, func(i, j int) bool {
+		i = ox[i]
+		j = ox[j]
+		return o[i].x < o[j].x
+	})
+
+	fix := func(k int, x int) int {
+		for j := k; j > 0; j-- {
+			xj := intersect(w[wx[j]], w[wx[j-1]], x)
+			xf := fraction{x, 1}
+			if !xf.less(xj) {
+				return j
+			}
+			wx[j], wx[j-1] = wx[j-1], wx[j]
+		}
+		return 0
+	}
+	_ = fix
+
+	i, l, r := 0, 0, 0
+	for i < len(o) {
+		_ = l
+		if debugEnable {
+			log.Println(i, r)
+		}
+		if r < len(wx) && w[wx[r]].x <= o[ox[i]].x { // TODO: дофига квадратных скобок
+			r++
+			continue
+		}
+
+		x := o[ox[i]].x
+
+		if debugEnable {
+			log.Println(wx[:r])
+		}
+
+		banned := make(map[int]struct{}, len(o[ox[i]].banned))
+		for _, v := range o[ox[i]].banned {
+			banned[v-1] = struct{}{} // [v-1] to 0-indexing
+		}
+
+		for j := l + 1; j < r; j++ {
+			for jj := j - 1; jj >= 0; jj-- {
+				if cost(w[wx[jj]], x) >= cost(w[wx[jj+1]], x) {
+					break
+				}
+				wx[jj], wx[jj+1] = wx[jj+1], wx[jj]
+			}
+		}
+
+		// sort.Slice(wx[l:r], func(i, j int) bool {
+		// 	i += l
+		// 	j += l
+		// 	return cost(w[wx[i]], x) > cost(w[wx[j]], x)
+		// })
+
+		xf := fraction{x, 1}
+		for j := l + 1; j < r; j++ {
+			xj := intersect(w[wx[j]], w[wx[j-1]], x)
+			if xf.less(xj) {
+				l = j - 1
+				break
+			}
+		}
+
+		// for l := 0; l < r; l++ {
+		// 	fix(l, x)
+		// }
+
+		for j := r - 1; j >= 0; j-- {
+			// fix(j, x)
+			if _, ok := banned[wx[j]]; !ok {
+				res[ox[i]] = min(res[ox[i]], cost(w[wx[j]], x))
+				break
+			}
+		}
+
+		i++
+	}
+}
+
+func iterate1(w []warehouse, o []order, res []int) {
 	// TODO это можно вынести наружу из функции
 	wx := make([]int, len(w))
 	for i := range wx {
@@ -113,35 +246,30 @@ func iterate(w []warehouse, o []order, res []int) {
 			continue
 		}
 
-		{
-			i := ox[i]
-			x := o[i].x
+		x := o[ox[i]].x
 
+		if debugEnable {
+			log.Println(wx[:r])
+		}
+
+		banned := make(map[int]struct{}, len(o[ox[i]].banned))
+		for _, v := range o[ox[i]].banned {
+			banned[v-1] = struct{}{} // [v-1] to 0-indexing
+		}
+
+		for j := r - 1; j >= 0; j-- {
+			dist := x - w[wx[j]].x
+			if dist*dist > res[ox[i]] {
+				break
+			}
+			if _, ok := banned[wx[j]]; ok {
+				continue
+			}
+			c := dist*dist + w[wx[j]].price
 			if debugEnable {
-				log.Println(wx[:r])
+				log.Println("cost:", res[ox[i]], c)
 			}
-
-			banned := make(map[int]struct{}, len(o[i].banned))
-			for _, v := range o[i].banned {
-				banned[v-1] = struct{}{} // [v-1] to 0-indexing
-			}
-
-			for j := r - 1; j >= 0; j-- {
-				j := wx[j]
-
-				dist := x - w[j].x
-				if dist*dist > res[i] {
-					break
-				}
-				if _, ok := banned[j]; ok {
-					continue
-				}
-				c := dist*dist + w[j].price
-				if debugEnable {
-					log.Println("cost:", res[i], c)
-				}
-				res[i] = min(res[i], c)
-			}
+			res[ox[i]] = min(res[ox[i]], c)
 		}
 
 		i++

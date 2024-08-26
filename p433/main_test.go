@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"log"
@@ -166,7 +167,7 @@ func init() {
 
 	banned := make([]int, n)
 	for i := range banned {
-		banned[i] = i+1
+		banned[i] = i + 1
 	}
 	rand.Shuffle(len(banned), func(i, j int) {
 		banned[i], banned[j] = banned[j], banned[i]
@@ -186,5 +187,8 @@ var res []int
 func Benchmark_solve(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		res = solve(tt.w, tt.o)
+		bw := bufio.NewWriter(io.Discard)
+		defer bw.Flush()
+		writeInts(bw, res, writeOpts{})
 	}
 }
